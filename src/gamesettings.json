@@ -1,0 +1,6 @@
+{
+  "player_speed": 0.2,
+  "player_spawn_position": [0, 0, -5],
+  "player_view_angle": 90,
+  "player_look": [0, 0]
+}
