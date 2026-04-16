@@ -1,11 +1,11 @@
-# shuraraft v2.0
+# shuraraft v3.0
 
 ## pluses:
-### good structure
-### world as byte file
-### always is object
+### optimisation
+### some physics
+### chunks structure
 
 ## future of project:
-### optimisation
 ### online
-### physics
+### better optimisation
+### bigger world
