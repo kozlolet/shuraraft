@@ -1,0 +1,7 @@
+{
+  "speed": 0.2,
+  "spawn_position": [5, 15, 5],
+  "view_angle": 75,
+  "look": [0, 0],
+  "height": 2
+}

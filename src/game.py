@@ -8,6 +8,7 @@ class Game:
         pygame.init()
         pygame.mouse.set_visible(False)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        # self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         pygame.event.set_grab(True)
         pygame.display.set_caption(TITLE)
 
@@ -16,19 +17,20 @@ class Game:
         self.X_center = self.screen.get_width() / 2
         self.Y_center = self.screen.get_height() / 2
 
-        self.scene = PlayScene(self)
+        self.scene = PlayScene(self, 'simpleworld')
 
 
     def run(self) -> None:
         while self.running:
             self.screen.fill(BG_COLOR)
-            dt = self.clock.tick(FPS) / 1000.0
+            self.dt = self.clock.tick(FPS) / 1000.0
 
             self.scene.handle_events()
             self.scene.update()
             self.scene.draw()
             pygame.display.flip()
 
+        self.scene.stop()
         pygame.quit()
 
 

@@ -1,5 +1,5 @@
 import pygame
-from math import cos, sin, radians
+from math import cos, sin, radians, floor
 import json
 
 
@@ -9,16 +9,17 @@ class Player:
         self.load_settings()
 
     def load_settings(self):
-        with open('src/gamesettings.json', 'r') as file:
+        with open('src/player_settings.json', 'r') as file:
             self.settings = json.load(file)
-        self.speed = self.settings['player_speed']
-        self.x, self.y, self.z = self.settings['player_spawn_position']
-        self.yaw, self.pitch = self.settings['player_look']
-        self.view_angle = self.settings['player_view_angle']
+        self.speed = self.settings['speed']
+        self.x, self.y, self.z = self.settings['spawn_position']
+        self.yaw, self.pitch = self.settings['look']
+        self.view_angle = self.settings['view_angle']
+        self.height = self.settings['height']
 
     def save_settings(self):
-        with open('gamesettings.json', 'w') as file:
-            json.dump(self.settings, file)
+        with open('player_settings.json', 'w') as file:
+            json.dump(self.settings, file, ensure_ascii=False, indent=4)
 
     def mouse_handle(self, event):
         X_center = self.play_scene.game.X_center
@@ -38,7 +39,12 @@ class Player:
 
                 pygame.mouse.set_pos(X_center, Y_center)
 
-    def update(self) -> None:
+        if self.yaw > 180:
+            self.yaw = -360 + self.yaw
+        if self.yaw < -180:
+            self.yaw = 360 + self.yaw
+
+    def handle_events(self) -> None:
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a]:
             self.z += self.speed*cos(radians(self.yaw + 90))
@@ -64,6 +70,21 @@ class Player:
             self.pitch -= 1
         if keys[pygame.K_DOWN]:
             self.pitch += 1
+
+    def update(self):
+        block_under = self.play_scene.world.get_block(floor(self.x), floor(self.y - self.height - 1), floor(self.z))
+        gravity = self.play_scene.world.world_gravity
+        dt = self.play_scene.game.dt
+
+        if block_under.y == -1:
+            return
+
+        if block_under.id != 0:
+            self.y = block_under.y+1+self.height
+        else:
+            self.y -= gravity*dt
+
+
 
     def draw(self, screen) -> None:
         pass

@@ -1,46 +1,93 @@
 from src.entities.block import Block
-from src.render.render_methods import sort_blocks_by_distance
+from src.render.render_methods import sort_chunks_by_distance
+from src.chunk import Chunk
+import os
+import json
+from math import floor
 
 
 class World:
     def __init__(self, play_scene):
+        self.world_name = play_scene.world_name
+        self.world_path = f'{os.getcwd()}/src/worlds/{self.world_name}'
+        self.load_settings()
         self.play_scene = play_scene
 
-    def load_world(self):
-        with open('src/world.shura', 'br') as file:
-            blocks_bytes = file.read()
+        self.chunks = []
+        self.loaded_chunks_pos = []
+        self.chunks_load()
+        for chunk in self.chunks:
+            chunk.make_polygons_mesh()
 
-        blocks_int = int.from_bytes(blocks_bytes, byteorder='big')
+    def load_settings(self):
+        with open(f'{self.world_path}/world_settings.json', 'r') as file:
+            self.settings = json.load(file)
+        self.world_max_y = self.settings['world_max_y']
+        self.world_gravity = self.settings['gravity']
 
-        self.blocks = []
-        while blocks_int:
-            block = blocks_int & 0xffffffffffffff
-            blocks_int = blocks_int >> 8*7
+    def save_settings(self):
+        with open(f'{self.world_path}/world_settings.json', 'w') as file:
+            json.dump(self.settings, file, ensure_ascii=False, indent=4)
 
-            block_z = block & 0xffff
-            block >>= 16
-            block_y = block & 0xffff
-            block >>= 16
-            block_x = block & 0xffff
-            block >>= 16
-            block_id = block & 0xff
+    def chunks_load(self):
+        for name in os.listdir(f'{self.world_path}'):
+            full_path = os.path.join(f'{self.world_path}', name)
+            if os.path.isdir(full_path):
+                print(f'load {name}')
+                x, z = map(int, name.replace('chunk(', '').replace(')', '').split(','))
+                if [x, z] in self.loaded_chunks_pos:
+                    continue
+                self.chunks.append(Chunk(self, x, z))
+                self.loaded_chunks_pos.append([x, z])
 
-            self.blocks.append(Block(self, block_id, block_x, block_y, block_z))
+    def get_block(self, x, y, z):
+        chunk_x = x//16
+        chunk_z = z//16
+        chunk_block_x = x - 16*chunk_x
+        chunk_block_y = floor(y)
+        chunk_block_z = z - 16*chunk_z
 
-    def save_world(self):
-        print('saving world...')
-        with open('world.shura', 'bw') as file:
-            for block in self.blocks:
-                file.write(block.get_bytes())
+        chunk = next((chunk for chunk in self.chunks if chunk.x == chunk_x and chunk.z == chunk_z), None)
+        if not chunk:
+            return
+
+        blocks = chunk.blocks
+        block = blocks[chunk_block_y][chunk_block_x][chunk_block_z]
+
+        return block
+
+    def get_block_id(self, x, y, z):
+        block = self.get_block(x, y, z)
+        if block:
+            return self.get_block(x, y, z).id
+        else:
+            return
+
+    # def save_world(self):
 
     def draw(self):
-        sorted_blocks = sort_blocks_by_distance(self.blocks, (self.play_scene.player.x, self.play_scene.player.y, self.play_scene.player.z))
-        for block in sorted_blocks:
-            block.draw()
+        chunks_sorted = sort_chunks_by_distance(self.chunks, [self.play_scene.player.x, self.play_scene.player.z])
+        for chunk in chunks_sorted:
+            chunk.draw()
 
-# size = 20
-# with open('world.shura', 'bw') as file:
-#     for x in range(size):
-#         for z in range(size):
-#             block = Block(None, 1, x, 0, z)
-#             file.write(block.get_bytes())
+
+
+# import os
+#
+# with open(f'{os.getcwd()}/worlds/simpleworld/chunk(1,1)/blocks.data', 'bw') as file:
+#     for y in range(5):
+#         for x in range(16):
+#             for z in range(16):
+#                 block = Block(None, 1, x, y, z)
+#                 file.write(block.id.to_bytes(1))
+#
+#     for y in range(20):
+#         for x in range(16):
+#             for z in range(16):
+#                 block = Block(None, 0, x, y+5, z)
+#                 file.write(block.id.to_bytes(1))
+
+
+# world = World(None)
+#
+# world.chunks_load()
