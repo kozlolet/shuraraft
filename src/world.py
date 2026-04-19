@@ -4,12 +4,14 @@ from src.chunk import Chunk
 import os
 import json
 from math import floor
+import pygame
 
 
 class World:
     def __init__(self, play_scene):
         self.world_name = play_scene.world_name
         self.world_path = f'{os.getcwd()}/src/worlds/{self.world_name}'
+        self.textures_path = f'{os.getcwd()}/src/resourcepack'
         self.load_settings()
         self.play_scene = play_scene
 
@@ -18,12 +20,25 @@ class World:
         self.chunks_load()
         for chunk in self.chunks:
             chunk.make_polygons_mesh()
+        self.textures = {}
+        self.load_textures()
 
     def load_settings(self):
         with open(f'{self.world_path}/world_settings.json', 'r') as file:
             self.settings = json.load(file)
         self.world_max_y = self.settings['world_max_y']
         self.world_gravity = self.settings['gravity']
+
+    def load_textures(self):
+        for filename in os.listdir(self.textures_path):
+            surface = pygame.image.load(f"{self.textures_path}/{filename}").convert()
+            texture = []
+            for texture_y in range(surface.get_height()):
+                texture.append([])
+                for texture_x in range(surface.get_width()):
+                    texture[texture_y].append(surface.get_at((texture_x, texture_y)))
+
+            self.textures[filename[:-4]] = texture
 
     def save_settings(self):
         with open(f'{self.world_path}/world_settings.json', 'w') as file:
@@ -74,18 +89,16 @@ class World:
 
 # import os
 #
-# with open(f'{os.getcwd()}/worlds/simpleworld/chunk(1,1)/blocks.data', 'bw') as file:
-#     for y in range(5):
+# with open(f'{os.getcwd()}/worlds/testing_UV/chunk(0,0)/blocks.data', 'bw') as file:
+#     for y in range(25):
 #         for x in range(16):
 #             for z in range(16):
-#                 block = Block(None, 1, x, y, z)
+#                 if x == 8 and y == 8 and z == 8:
+#                     block = Block(None, 1, x, y, z)
+#                 else:
+#                     block = Block(None, 0, x, y, z)
 #                 file.write(block.id.to_bytes(1))
-#
-#     for y in range(20):
-#         for x in range(16):
-#             for z in range(16):
-#                 block = Block(None, 0, x, y+5, z)
-#                 file.write(block.id.to_bytes(1))
+
 
 
 # world = World(None)

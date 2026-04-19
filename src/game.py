@@ -18,6 +18,7 @@ class Game:
         self.Y_center = self.screen.get_height() / 2
 
         self.scene = PlayScene(self, 'simpleworld')
+        # self.scene = PlayScene(self, 'testing_UV')
 
 
     def run(self) -> None:

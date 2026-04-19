@@ -1,6 +1,7 @@
 import os
 from src.entities.block import Block
-from src.render.render_methods import split_block_on_polygons, chunk_polygons_render
+from src.render.render_methods import chunk_polygons_render
+from src.render.split_block_on_polygons import split_block_on_polygons
 
 
 class Chunk:

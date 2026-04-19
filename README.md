@@ -1,11 +1,17 @@
-# shuraraft v3.0
+# shuraraft v4.0
+
 
 ## pluses:
-### optimisation
-### some physics
-### chunks structure
+#### maximum of optimisation
+#### textures
+
 
 ## future of project:
-### online
-### better optimisation
-### bigger world
+Сейчас я уперся в потолок. 
+Python не может нормально обрабатывать столько полигонов с тестурами какую бы я оптимизацию не делал. 
+
+Сами текстуры можно подключить изменив в настройках игрока значение texturing_distance на любое кроме 0.
+
+Я сделал все что мог, но на CPU далеко не уедешь.
+
+## буду переходить на OpenGL

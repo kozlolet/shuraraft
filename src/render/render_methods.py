@@ -1,152 +1,68 @@
-from math import sqrt, degrees, radians, atan2, sin, cos, tan
+from math import sqrt, degrees, radians, atan2, sin, cos, tan, floor
 import pygame
 from src.render.blocks_id import blocks_id
 from src.config import WIDTH, HEIGHT
-
-
-def calculate_point_projection(screen, view_angle, yaw, pitch, player_pos, target_pos):
-    player_x = player_pos[0]
-    player_y = player_pos[1]
-    player_z = player_pos[2]
-    target_x = target_pos[0]
-    target_y = target_pos[1]
-    target_z = target_pos[2]
-    aspect = screen.get_width()/screen.get_height()
-
-    # edit by Y rotate
-    XZ_distance = sqrt(  (target_x - player_x)**2 + (target_z - player_z)**2  )
-    Y_relative_angle = degrees(atan2(target_x - player_x, target_z - player_z))
-
-    target_x += XZ_distance * sin(radians(Y_relative_angle + yaw)) - (target_x - player_x)
-    target_y += 0
-    target_z -= (target_z - player_z) - XZ_distance*cos(radians(Y_relative_angle + yaw))
-
-    # edit by X rotate
-    YZ_distance = sqrt(  (target_y - player_y)**2 + (target_z - player_z)**2  )
-    X_relative_angle = degrees(atan2(target_y - player_y, target_z - player_z))
-
-    target_x += 0
-    target_y += YZ_distance * sin(radians(X_relative_angle + pitch)) - (target_y - player_y)
-    target_z -= (target_z - player_z) - YZ_distance*cos(radians(X_relative_angle + pitch))
-
-    if player_z >= target_z-0.01:
-        return
-
-    # screen x calculate
-    distance_toLeft = tan(radians(view_angle)/2) * (target_z - player_pos[2]) - (player_pos[0] - target_x)
-    full_flat = tan(radians(view_angle)/2) * (target_z - player_pos[2]) * 2
-    E_toLeft = distance_toLeft / full_flat
-    target_screen_x = screen.get_width() * E_toLeft
-
-    view_angle_vertical = degrees(  2 * atan2( tan( radians(view_angle)/2 ), aspect )  )
-    # screen y calculate
-    distance_toUp = tan(radians(view_angle_vertical)/2) * (target_z - player_pos[2]) - (target_y - player_pos[1])
-    full_flat = tan(radians(view_angle_vertical)/2) * (target_z - player_pos[2]) * 2
-    E_toUp = distance_toUp / full_flat
-    target_screen_y = screen.get_height() * E_toUp
-
-    return target_screen_x, target_screen_y
-
-
-def split_block_on_polygons(block):
-    world = block.chunk.world
-
-    x = block.x + 16*block.chunk.x  # absolute
-    y = block.y                     # absolute
-    z = block.z + 16*block.chunk.z  # absolute
-
-    polygons = []
-
-    # -Z face
-    if not world.get_block_id(x, y, z-1):
-        polygons.append([[x+1, y, z], [x, y+1, z], [x, y, z]])
-        polygons.append([[x+1, y, z], [x, y+1, z], [x+1, y+1, z]])
-
-    # -X face
-    if not world.get_block_id(x-1, y, z):
-        polygons.append([[x, y, z], [x, y+1, z+1], [x, y, z+1]])
-        polygons.append([[x, y, z], [x, y+1, z+1], [x, y+1, z]])
-
-    # +X face
-    if not world.get_block_id(x+1, y, z):
-        polygons.append([[x+1, y+1, z], [x+1, y, z+1], [x+1, y, z]])
-        polygons.append([[x+1, y+1, z], [x+1, y, z+1], [x+1, y+1, z+1]])
-
-    # +Z face
-    if not world.get_block_id(x, y, z+1):
-        polygons.append([[x, y+1, z+1], [x+1, y, z+1], [x, y, z+1]])
-        polygons.append([[x, y+1, z+1], [x+1, y, z+1], [x+1, y+1, z+1]])
-
-    # -Y face
-    if not world.get_block_id(x, y-1, z):
-        polygons.append([[x, y, z+1], [x+1, y, z], [x, y, z]])
-        polygons.append([[x, y, z+1], [x+1, y, z], [x+1, y, z+1]])
-
-    # +Y face
-    if not world.get_block_id(x, y+1, z):
-        polygons.append([[x, y+1, z+1], [x+1, y+1, z], [x, y+1, z]])
-        polygons.append([[x, y+1, z+1], [x+1, y+1, z], [x+1, y+1, z+1]])
-
-    return [{'polygon': polygon, 'id': block.id} for polygon in polygons]
+from src.render.calculate_projection import calculate_screen_polygon
+from src.render.UV import draw_texture_pixels
+import numpy
 
 
 def chunk_polygons_render(chunk, polygons):
     play_scene = chunk.world.play_scene
-    player_x = play_scene.player.x
-    player_y = play_scene.player.y
-    player_z = play_scene.player.z
-    yaw = play_scene.player.yaw
-    pitch = play_scene.player.pitch
-    view_angle = play_scene.player.view_angle
+    screen = play_scene.game.screen
+    textures = chunk.world.textures
+    player = play_scene.player
 
-    sorted_polygons = sort_polygons(polygons, (player_x, player_y, player_z))
+    distance_sorted_polygons = sort_polygons_by_distance(polygons, player)
+    arr = pygame.surfarray.pixels3d(screen)
 
-    for polygon in sorted_polygons:
-        polygon_screen = []
-        skip = False
-        polygon_color = blocks_id[polygon['id']]
-        for point in polygon['polygon']:
-            screen_coords = calculate_point_projection(screen=play_scene.game.screen,
-                                                       view_angle=view_angle,
-                                                       yaw=yaw, pitch=pitch,
-                                                       player_pos=(player_x, player_y, player_z),
-                                                       target_pos=point)
-            if not screen_coords:
-                skip = True
-                continue
-            polygon_screen.append(screen_coords)
+    for polygon in distance_sorted_polygons:
+        polygon_texture = textures[blocks_id[polygon['id']][0]]
+        polygon_color = blocks_id[polygon['id']][1]
 
-        if skip:
+        view_faces = get_faces_that_the_player_sees(player, polygon['polygon']['pos'])
+        if polygon['face_dir'] not in view_faces:
+            continue
+
+        polygon_screen = calculate_screen_polygon(screen, player, polygon['polygon']['pos'])
+        if not polygon_screen:
             continue
 
         out_screen_polygon = True
         for point_screen in polygon_screen:
-            if point_screen[0] > 0 and point_screen[0] < WIDTH:
+            if 0 < point_screen[0] < WIDTH:
                 out_screen_polygon = False
-            elif point_screen[1] > 0 and point_screen[1] < HEIGHT:
+            elif 0 < point_screen[1] < HEIGHT:
                 out_screen_polygon = False
-        if not out_screen_polygon:
-            pygame.draw.polygon(play_scene.game.screen, polygon_color, polygon_screen)
+
+        if out_screen_polygon:
+            continue
+
+        if distance_to_polygon(player, polygon['polygon']['pos']) <= player.settings['texturing_distance']:
+            quality = player.settings['texture_step']
+            if player.settings['dynamic_texture_step']:
+                quality = automatic_quality_by_distance(player, polygon['polygon']['pos'])
+
+            draw_texture_pixels(screen=screen,
+                                arr=arr,
+                                texture=polygon_texture,
+                                quality=quality,
+                                vertexes=polygon_screen,
+                                uv=polygon['polygon']['uv'])
+        else:
+            pygame.draw.polygon(screen, polygon_color, polygon_screen)
+    del arr
 
 
-def sort_polygons(polygons, player_pos):
-    def get_polygon_center(polygon_points):
-        if not polygon_points:
-            return player_pos
 
-        sum_x = sum(v[0] for v in polygon_points)
-        sum_y = sum(v[1] for v in polygon_points)
-        sum_z = sum(v[2] for v in polygon_points)
-        n = len(polygon_points)
 
-        return [sum_x / n, sum_y / n, sum_z / n]
-
+def sort_polygons_by_distance(polygons, player):
     def distance_to_player(polygon):
-        center = get_polygon_center(polygon['polygon'])
+        center = get_polygon_center(polygon['polygon']['pos'])
 
-        return ((center[0] - player_pos[0])**2 +
-                (center[1] - player_pos[1])**2 +
-                (center[2] - player_pos[2])**2)
+        return ((center[0] - player.x)**2 +
+                (center[1] - player.y)**2 +
+                (center[2] - player.z)**2)
 
     return sorted(polygons, key=distance_to_player, reverse=True)
 
@@ -165,5 +81,61 @@ def sort_chunks_by_distance(chunks, player_pos):
                 (center[1] - player_pos[1])**2)
 
     return sorted(chunks, key=distance_to_player, reverse=True)
+
+
+def distance_to_polygon(player, polygon_vertexes):
+    polygon_center = get_polygon_center(polygon_vertexes)
+    return ((polygon_center[0] - player.x)**2 +
+            (polygon_center[1] - player.y)**2 +
+            (polygon_center[2] - player.z)**2)
+
+
+def automatic_quality_by_distance(player, polygon_vertexes):
+    distance = distance_to_polygon(player, polygon_vertexes)
+
+    texture_step = floor(1000/distance)+1
+
+    texture_step = 16 if texture_step > 16 else texture_step
+    texture_step = 1 if texture_step < 1 else texture_step
+
+    return texture_step
+
+
+def get_polygon_center(polygon_vertexes):
+    sum_x = sum(v[0] for v in polygon_vertexes)
+    sum_y = sum(v[1] for v in polygon_vertexes)
+    sum_z = sum(v[2] for v in polygon_vertexes)
+    n = len(polygon_vertexes)
+
+    return [sum_x / n, sum_y / n, sum_z / n]
+
+
+def get_faces_that_the_player_sees(player, polygon_vertexes):
+    # return what parts of the block does the player see
+
+    polygon_center = get_polygon_center(polygon_vertexes)
+
+    view_faces = []
+    if player.x > polygon_center[0]:
+        view_faces.append('+x')
+    else:
+        view_faces.append('-x')
+
+    if player.y > polygon_center[1]:
+        view_faces.append('+y')
+    else:
+        view_faces.append('-y')
+
+    if player.z > polygon_center[2]:
+        view_faces.append('+z')
+    else:
+        view_faces.append('-z')
+
+    return view_faces
+
+
+
+
+
 
 

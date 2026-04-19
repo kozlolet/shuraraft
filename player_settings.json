@@ -1,0 +1,17 @@
+{
+    "speed": 0.2,
+    "spawn_position": [
+        8,
+        8,
+        0
+    ],
+    "view_angle": 75,
+    "look": [
+        0,
+        0
+    ],
+    "height": 2,
+    "dynamic_texture_step": false,
+    "texture_step": 4,
+    "texturing_distance": 0
+}
